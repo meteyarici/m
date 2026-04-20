@@ -1,10 +1,9 @@
 {!! view_render_event('bagisto.shop.layout.header.before') !!}
 
-@if(core()->getCurrentChannel()->locales()->count() > 1 || core()->getCurrentChannel()->currencies()->count() > 1 )
-    <div class="max-lg:hidden">
-        <x-shop::layouts.header.desktop.top />
-    </div>
-@endif
+{{-- Tek locale/currency olsa da topbar'da "Satış yap" butonu ve başlık metni göründüğü için koşulsuz render ediyoruz. --}}
+<div class="max-lg:hidden">
+    <x-shop::layouts.header.desktop.top />
+</div>
 
 <header class="shadow-gray sticky top-0 z-10 bg-white shadow-sm max-lg:shadow-none">
     <v-header-switcher>

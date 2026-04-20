@@ -97,14 +97,11 @@ class HomeController extends Controller
 
     public function createAuction()
     {
-
         if (! auth()->guard('customer')->check()) {
-
             Cookie::queue('return_to', route('shop.create-auction.index'), 10);
             return redirect()->route('shop.customer.session.index');
         }
 
-        $product = $this->productRepository->findOrFail(17);
-        return view('shop::home.create-auction', compact('product'));
+        return view('shop::home.create-auction');
     }
 }
