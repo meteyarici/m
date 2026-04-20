@@ -1,0 +1,23 @@
+{
+  "packages/Webkul/Shop/src/Resources/assets/css/app.css": {
+    "file": "assets/app-Wg0mHKl3.css",
+    "src": "packages/Webkul/Shop/src/Resources/assets/css/app.css",
+    "isEntry": true
+  },
+  "packages/Webkul/Shop/src/Resources/assets/fonts/barlow-regular.woff": {
+    "file": "assets/barlow-regular-BIDw2grb.woff",
+    "src": "packages/Webkul/Shop/src/Resources/assets/fonts/barlow-regular.woff"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-l0sNRNKZ.js",
+    "name": "app",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-DbCbIXjT.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}
