@@ -34,4 +34,22 @@ return [
         'jenssegers' => \Shetabit\Visitor\Drivers\JenssegersAgent::class,
         'UAParser'   => \Shetabit\Visitor\Drivers\UAParser::class,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | GeoIP Enrichment (shetabit/visitor v4.5+)
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, visits can be enriched with geolocation data stored
+    | in the "geo_raw" JSON column. This package ships with a default
+    | resolver (stevebauman/location). You may implement your own by
+    | adding it to the resolvers array below.
+    |
+    */
+    'geoip'     => env('VISITOR_GEOIP_ENABLED', false),
+    'resolver'  => env('VISITOR_GEOIP_RESOLVER', 'null'),
+    'resolvers' => [
+        'stevebauman' => \Shetabit\Visitor\Resolvers\GeoIp\SteveBaumanResolver::class,
+        'null'        => \Shetabit\Visitor\Resolvers\GeoIp\NullResolver::class,
+    ],
 ];

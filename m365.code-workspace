@@ -1,0 +1,185 @@
+{
+  "folders": [
+    {
+      "name": "m365 (Bagisto)",
+      "path": "."
+    },
+    {
+      "name": "packages/Webkul",
+      "path": "packages/Webkul"
+    },
+    {
+      "name": "websocket-server (Go)",
+      "path": "websocket-server"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/vendor": true,
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/storage/framework/cache/**": true,
+      "**/storage/logs/*.log": true,
+      "**/bootstrap/cache/*.php": true,
+      "**/.DS_Store": true
+    },
+    "search.exclude": {
+      "**/vendor": true,
+      "**/node_modules": true,
+      "**/public/build": true,
+      "**/public/storage": true,
+      "**/storage/framework": true,
+      "**/storage/logs": true,
+      "**/composer.lock": true,
+      "**/package-lock.json": true
+    },
+    "files.associations": {
+      "*.blade.php": "blade",
+      ".env.*": "properties"
+    },
+    "editor.formatOnSave": false,
+    "editor.tabSize": 4,
+    "[php]": {
+      "editor.tabSize": 4,
+      "editor.insertSpaces": true
+    },
+    "[blade]": {
+      "editor.tabSize": 4
+    },
+    "[javascript]": {
+      "editor.tabSize": 2
+    },
+    "[json]": {
+      "editor.tabSize": 2
+    },
+    "[yaml]": {
+      "editor.tabSize": 2
+    },
+    "[go]": {
+      "editor.tabSize": 4,
+      "editor.insertSpaces": false
+    },
+    "php.suggest.basic": false,
+    "intelephense.environment.phpVersion": "8.2.0",
+    "intelephense.files.maxSize": 5000000,
+    "emmet.includeLanguages": {
+      "blade": "html"
+    },
+    "terminal.integrated.cwd": "${workspaceFolder:m365 (Bagisto)}",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#1e3a5f",
+      "titleBar.activeForeground": "#ffffff",
+      "statusBar.background": "#1e3a5f",
+      "statusBar.foreground": "#ffffff"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "bmewburn.vscode-intelephense-client",
+      "onecentlin.laravel-blade",
+      "amiralizadeh9480.laravel-extra-intellisense",
+      "ryannaddy.laravel-artisan",
+      "open-southeners.laravel-pint",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "ms-azuretools.vscode-docker",
+      "golang.go",
+      "eamodio.gitlens",
+      "mikestead.dotenv",
+      "redhat.vscode-yaml"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Sail: up",
+        "type": "shell",
+        "command": "docker compose up -d",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "presentation": { "reveal": "always", "panel": "dedicated" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Sail: down",
+        "type": "shell",
+        "command": "docker compose down",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Sail: logs (app)",
+        "type": "shell",
+        "command": "docker compose logs -f laravel.test",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "presentation": { "reveal": "always", "panel": "dedicated" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Composer install",
+        "type": "shell",
+        "command": "composer install",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "NPM install & dev",
+        "type": "shell",
+        "command": "npm install && npm run dev",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Artisan: optimize:clear",
+        "type": "shell",
+        "command": "./vendor/bin/sail artisan optimize:clear",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Artisan: indexer (full)",
+        "type": "shell",
+        "command": "./vendor/bin/sail artisan indexer:index --mode=full",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "Artisan: queue:work",
+        "type": "shell",
+        "command": "./vendor/bin/sail artisan queue:work",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "isBackground": true,
+        "problemMatcher": []
+      },
+      {
+        "label": "Pint (format)",
+        "type": "shell",
+        "command": "./vendor/bin/pint",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "problemMatcher": []
+      },
+      {
+        "label": "PHPUnit",
+        "type": "shell",
+        "command": "./vendor/bin/sail test",
+        "options": { "cwd": "${workspaceFolder:m365 (Bagisto)}" },
+        "group": "test",
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Listen for Xdebug (Sail)",
+        "type": "php",
+        "request": "launch",
+        "port": 9003,
+        "pathMappings": {
+          "/var/www/html": "${workspaceFolder:m365 (Bagisto)}"
+        }
+      }
+    ]
+  }
+}

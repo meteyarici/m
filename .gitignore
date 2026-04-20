@@ -34,3 +34,18 @@ yarn-error.log
 **/caddy
 frankenphp
 frankenphp-worker.php
+
+# Go (websocket-server)
+# Local-only credentials (admin/dev secrets)
+.admin-credentials.local
+*.credentials.local
+
+/websocket-server/websocket-server
+/websocket-server/*.exe
+/websocket-server/tmp/
+
+# OS / IDE
+.DS_Store
+**/.DS_Store
+*:Zone.Identifier
+__MACOSX/

@@ -1,0 +1,68 @@
+Description: Laravel 11 compatibility — `Model::whenBooted()` Laravel 12+ API'sidir.
+             `kalnoy/nestedset v6.0.11+` NodeTrait::bootNodeTrait içinde bunu kullanıyor ve
+             Laravel 11.x üzerinde "Call to undefined method ...::whenBooted()" fatal error'una
+             yol açıyor. bootNodeTrait zaten model boot sırasında çağrıldığı için closure
+             sarmalayıcısını kaldırıp event kayıtlarını doğrudan yapıyoruz.
+Bug-Upstream: kalnoy/nestedset Laravel 11 desteğini kaybetti (6.0.11+ sürümlerde).
+Author: m365 team
+Forwarded: not-needed (upstream Laravel 12'ye geçti)
+
+--- a/src/NodeTrait.php
++++ b/src/NodeTrait.php
+@@ -40,35 +40,35 @@
+ 
+     /**
+      * Sign on model events.
++     *
++     * PATCH (m365): Laravel 11 compatibility — `whenBooted` Laravel 12+ yöntemi olduğu
++     * için kaldırıldı. `bootNodeTrait` zaten model boot sırasında çağrılır,
++     * event kayıtları doğrudan yapılabilir.
+      */
+     public static function bootNodeTrait()
+     {
+-        static::whenBooted(function () {
++        static::saving(function ($model) {
++            return $model->callPendingAction();
++        });
+ 
+-            static::saving(function ($model) {
+-                return $model->callPendingAction();
+-            });
++        static::deleting(function ($model) {
++            // We will need fresh data to delete node safely
++            $model->refreshNode();
++        });
+ 
+-            static::deleting(function ($model) {
+-                // We will need fresh data to delete node safely
+-                $model->refreshNode();
+-            });
++        static::deleted(function ($model) {
++            $model->deleteDescendants();
++        });
+ 
+-            static::deleted(function ($model) {
+-                $model->deleteDescendants();
++        if (static::usesSoftDelete()) {
++            static::restoring(function ($model) {
++                static::$deletedAt = $model->{$model->getDeletedAtColumn()};
+             });
+ 
+-            if (static::usesSoftDelete()) {
+-                static::restoring(function ($model) {
+-                    static::$deletedAt = $model->{$model->getDeletedAtColumn()};
+-                });
+-
+-                static::restored(function ($model) {
+-                    $model->restoreDescendants(static::$deletedAt);
+-                });
+-            }
+-            
+-        });
++            static::restored(function ($model) {
++                $model->restoreDescendants(static::$deletedAt);
++            });
++        }
+     }
+ 
+     /**
