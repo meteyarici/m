@@ -1,0 +1,216 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
+)
+
+// =====================
+// CONFIG
+// =====================
+const (
+	readWait       = 10 * time.Second
+	writeWait      = 10 * time.Second
+	pingPeriod     = 5 * time.Second
+	maxMessageSize = 512
+)
+
+// =====================
+// REDIS
+// =====================
+var rdb = redis.NewClient(&redis.Options{
+	Addr: "localhost:6379",
+})
+
+// =====================
+// WS UPGRADER
+// =====================
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+// =====================
+// CLIENT
+// =====================
+type Client struct {
+	hub    *Hub
+	conn   *websocket.Conn
+	userID int64
+	send   chan []byte
+}
+
+func (c *Client) readPump() {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
+
+	c.conn.SetReadLimit(maxMessageSize)
+	c.conn.SetReadDeadline(time.Now().Add(readWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(readWait))
+		return nil
+	})
+
+	for {
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		c.hub.broadcast <- message
+	}
+}
+
+func (c *Client) writePump() {
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
+
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
+}
+
+// =====================
+// HUB
+// =====================
+type Hub struct {
+	clients    map[*Client]bool
+	broadcast  chan []byte
+	register   chan *Client
+	unregister chan *Client
+}
+
+func (h *Hub) run() {
+	for {
+		select {
+		case c := <-h.register:
+			h.clients[c] = true
+			log.Printf("Client connected user=%d total=%d", c.userID, len(h.clients))
+
+		case c := <-h.unregister:
+			if _, ok := h.clients[c]; ok {
+				delete(h.clients, c)
+				close(c.send)
+			}
+
+		case msg := <-h.broadcast:
+			for c := range h.clients {
+				select {
+				case c.send <- msg:
+				default:
+					close(c.send)
+					delete(h.clients, c)
+				}
+			}
+		}
+	}
+}
+
+// =====================
+// AUTH
+// =====================
+func validateOpaqueToken(ctx context.Context, token string) (int64, error) {
+	key := "opaque:token:" + token
+
+	val, err := rdb.Get(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+
+	var data struct {
+		UserID int64 `json:"user_id"`
+	}
+
+	if err := json.Unmarshal([]byte(val), &data); err != nil {
+		return 0, err
+	}
+
+	// single-use
+	rdb.Del(ctx, key)
+
+	return data.UserID, nil
+}
+
+// =====================
+// WS HANDLER
+// =====================
+func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "missing token", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := validateOpaqueToken(r.Context(), token)
+	if err != nil {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+
+	client := &Client{
+		hub:    hub,
+		conn:   conn,
+		userID: userID,
+		send:   make(chan []byte, 256),
+	}
+
+	hub.register <- client
+
+	go client.writePump()
+	go client.readPump()
+}
+
+// =====================
+// MAIN
+// =====================
+func main() {
+	hub := &Hub{
+		broadcast:  make(chan []byte),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		clients:    make(map[*Client]bool),
+	}
+
+	go hub.run()
+
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		serveWs(hub, w, r)
+	})
+
+	log.Println("WS server listening on :8081")
+	log.Fatal(http.ListenAndServe(":8081", nil))
+}

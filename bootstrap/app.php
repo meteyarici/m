@@ -43,8 +43,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->replaceInGroup('web', BaseEncryptCookies::class, EncryptCookies::class);
     })
     ->withSchedule(function (Schedule $schedule) {
-        //
+        $schedule->command('auction:activate --batch')->everyMinute()->withoutOverlapping();
+        $schedule->command('auction:close')->everyMinute()->withoutOverlapping();
     })
+    ->withEvents(discover: [
+        __DIR__.'/../app/Listeners',
+    ])
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

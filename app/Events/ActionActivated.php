@@ -2,38 +2,48 @@
 
 namespace App\Events;
 
+use App\Models\Auction;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Auction;
 
-class ActionActivated
+/**
+ * Bir mezat aktif duruma geçtiğinde fırlatılan event.
+ *
+ * NOT: Sınıf adı eski kodda "ActionActivated" olarak yazılmış (typo).
+ * Çağıran yerleri bozmamak için ad korundu; içerik bu fazda tamamlandı.
+ */
+class ActionActivated implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
-    /**
-     * Create a new event instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(public Auction $auction) {}
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
-     */
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('channel-name'),
+            new PrivateChannel('auction.'.$this->auction->id),
         ];
     }
 
+    public function broadcastAs(): string
+    {
+        return 'auction.activated';
+    }
 
+    public function broadcastWith(): array
+    {
+        return [
+            'auction_id'    => $this->auction->id,
+            'title'         => $this->auction->title,
+            'start_at'      => $this->auction->start_at?->toIso8601String(),
+            'end_at'        => $this->auction->end_at?->toIso8601String(),
+            'current_price' => (float) $this->auction->current_price,
+        ];
+    }
 }

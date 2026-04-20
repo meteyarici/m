@@ -177,6 +177,29 @@ return [
             'database' => env('REDIS_SESSION_DATABASE', '2'),
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | Auction (Go WS interop) connection
+        |--------------------------------------------------------------------------
+        |
+        | Go WebSocket sunucusu ham Redis key'lerini (`auction:{id}`,
+        | `opaque:token:{token}`) kullanıyor. Default Laravel bağlantısı
+        | `m365_database_` prefix'i eklediği için Go WS ile tutarsız kalır.
+        | Bu bağlantı prefix olmadan çalışarak iki tarafı da aynı anahtar
+        | uzayında buluşturur.
+        */
+        'auction' => [
+            'url'      => env('REDIS_URL'),
+            'host'     => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD', null),
+            'port'     => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_AUCTION_DATABASE', '0'),
+            'options'  => [
+                'prefix' => '',
+            ],
+        ],
+
     ],
 
 ];
