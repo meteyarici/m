@@ -3,6 +3,7 @@
 namespace Webkul\Shop\Http\Controllers;
 
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Webkul\Category\Repositories\CategoryRepository;
 use Webkul\Product\Repositories\ProductRepository;
@@ -102,6 +103,42 @@ class HomeController extends Controller
             return redirect()->route('shop.customer.session.index');
         }
 
-        return view('shop::home.create-auction');
+        $rootId = (int) (core()->getCurrentChannel()->root_category_id ?? 1);
+
+        $locale = core()->getCurrentLocale()->code ?? 'tr';
+
+        $mains = DB::table('categories as c')
+            ->join('category_translations as t', function ($join) use ($locale) {
+                $join->on('t.category_id', '=', 'c.id')->where('t.locale', $locale);
+            })
+            ->where('c.parent_id', $rootId)
+            ->where('c.status', 1)
+            ->orderBy('c.position')
+            ->get(['c.id', 'c.additional', 't.name']);
+
+        $auctionCategories = $mains->map(function ($main) use ($locale) {
+            $additional = json_decode($main->additional ?? '', true) ?: [];
+
+            $subs = DB::table('categories as c')
+                ->join('category_translations as t', function ($join) use ($locale) {
+                    $join->on('t.category_id', '=', 'c.id')->where('t.locale', $locale);
+                })
+                ->where('c.parent_id', $main->id)
+                ->where('c.status', 1)
+                ->orderBy('c.position')
+                ->get(['c.id', 't.name']);
+
+            return [
+                'id'            => (int) $main->id,
+                'name'          => $main->name,
+                'icon'          => $additional['icon'] ?? '',
+                'subCategories' => $subs->map(fn ($s) => [
+                    'id'   => (int) $s->id,
+                    'name' => $s->name,
+                ])->values()->all(),
+            ];
+        })->values()->all();
+
+        return view('shop::home.create-auction', compact('auctionCategories'));
     }
 }

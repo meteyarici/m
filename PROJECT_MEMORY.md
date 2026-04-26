@@ -2,7 +2,7 @@
 
 > **Workspace:** `/home/meteyar/projects/m`
 > **Proje Tipi:** Bagisto tabanlı Laravel E-Commerce (modüler monolit) + Go WebSocket (monorepo)
-> **Son Güncelleme:** 20 Nisan 2026 (akşam)
+> **Son Güncelleme:** 26 Nisan 2026
 
 ---
 
@@ -46,7 +46,7 @@ Admin, Shop, Product, Category, Checkout, Customer, Sales, Inventory, Payment, P
 | Kontrol | Durum |
 |---|---|
 | `.env` | ✅ Mevcut (gitignored) |
-| `.env.local` | ✅ Versiyon kontrollü şablon — `cp .env.local .env` ile kopyalanır |
+| `.env.example.local` | ✅ Versiyon kontrollü şablon — `cp .env.example.local .env` (`.env.local` adı Laravel `APP_ENV=local` override ile çakıştığı için bu isim kullanılır) |
 | `vendor/` | ✅ Yüklü (`composer install`, 192 paket) |
 | `node_modules/` | ✅ Yüklü (`npm install`, 72 paket) |
 | `APP_KEY` | ✅ Üretilmiş |
@@ -62,7 +62,7 @@ Yeni bir makinede (veya temiz clone'da) hızlı kurulum:
 
 ```bash
 # 1) .env şablonundan başlat
-cp .env.local .env
+cp .env.example.local .env
 
 # 2) Bağımlılıklar (Sail container içinden)
 docker compose run --rm laravel.test composer install --ignore-platform-reqs --no-scripts
@@ -84,7 +84,7 @@ docker compose exec laravel.test php artisan indexer:index --mode=full
 docker compose exec laravel.test npm run build
 ```
 
-**Erişim URL'leri** (port forward `.env.local` ile uyumlu):
+**Erişim URL'leri** (port forward `.env.example.local` / `APP_PORT=8090` ile uyumlu):
 - Storefront: http://localhost:8090
 - Admin: http://localhost:8090/admin/login
 - Mailpit UI: http://localhost:18025
@@ -175,7 +175,7 @@ Go WebSocket sunucusu ayrı repo iken **20 Nisan 2026**'da bu repoya entegre edi
 | # | Sorun | Eski Durum | Güncel |
 |---|---|---|---|
 | 1 | ~~`vendor/` yok~~ | composer install edilmemişti | ✅ `composer install` tamamlandı |
-| 2 | ~~`.env` yok~~ | template yoktu | ✅ `.env.local` repo'ya eklendi, `cp .env.local .env` ile başlanır |
+| 2 | ~~`.env` yok~~ | template yoktu | ✅ `.env.example.local` şablonu, `cp .env.example.local .env` |
 | 3 | ~~`../websocket-server` dış repo~~ | ayrı repo, monorepo değildi | ✅ Monorepo içinde (`./websocket-server/`) |
 
 ### 🟡 Yapılandırma Uyumsuzlukları

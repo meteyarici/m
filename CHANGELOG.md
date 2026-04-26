@@ -8,6 +8,16 @@ Sürümleme: [SemVer](https://semver.org/lang/tr/)
 
 ## [Unreleased]
 
+### Fixed — Ortam & mezat UI (Nisan 2026)
+- **Laravel `APP_ENV=local` + şablon dosyası adı:** Repo şablonu `.env.local` adını taşıyordu; framework bu dosyayı `APP_ENV=local` iken otomatik override dosyası sanıp boş `APP_KEY` ile Octane'ı kırabiliyordu. **Çözüm:** şablon `.env.example.local` olarak tutulur; kurulum `cp .env.example.local .env`. `APP_URL` geliştirmede `http://localhost:8090` (Storage URL’leri ve önizlemeler portla uyumlu kalsın).
+- **Ürün sayfası mezat geri sayımı:** `v-product` şablonu (`text/x-template`) DOM’a geç yüklediği için `getElementById` ile hemen çalışan script `--:--:--` placeholder’da takılı kalıyordu. `requestAnimationFrame` + `MutationObserver` ile gecikmeli başlatma eklendi (`products/view.blade.php`).
+
+### Added — Mezat oluşturma & kategoriler (26 Nisan 2026)
+- **`HomeController::createAuction`:** Kategori ağacı kanal DB’sinden okunur; `create-auction` şablonuna `auctionCategories` JSON ile gider.
+- **`AuctionController::store`:** `visible_individually` (attr 7) eklendi; `product_categories` yalnız mevcut `categories.id` ile doldurulur, alt + üst kategori; yoksa kök (1) (FK 1452 önlenir). `auctions` kaydına kategori alanları yazılır.
+- **`AuctionModerationController::activate`:** Aktifleştirmede ürün `status` + `visible_individually` ve tam `indexer:index --mode=full` (queue yok, senkron).
+- **`AuctionCategorySeeder`:** Mezat ekranı ağaç idempotent seed. Çalıştırma: `php artisan db:seed --class=AuctionCategorySeeder` (gerekirse kategori satırlarını mezat UI ile hizalar).
+
 ### Fixed — Tema & UI Kurtarma (20 Nisan 2026, akşam)
 - **Eski tasarım geri kazanıldı.** `bagistoplus/visual` paketinin `visual-debut` temasını fallback olarak aktive etmesi nedeniyle giriş sonrası sayfalarda yabancı tema görünüyordu. Kök neden: yeni auction route'larında Bagisto'nun `theme/locale/currency` middleware'i eksikti.
   - `routes/web.php` → `Route::middleware(['web','theme','locale','currency'])` grubu auction route'larına uygulandı.
@@ -17,7 +27,7 @@ Sürümleme: [SemVer](https://semver.org/lang/tr/)
 - **`/customer/create-auction` 404'ü düzeltildi.** `HomeController::createAuction()` içindeki dead-code `$this->productRepository->findOrFail(17)` kaldırıldı. Blade şablonu `$product` değişkenini zaten hiç kullanmıyordu; sabit kodlu ID=17 DB'de olmadığı için 404 atıyordu.
 
 ### Added — Kurulum Kolaylığı (20 Nisan 2026, akşam)
-- **`.env.local` repo'ya eklendi** (versiyon kontrollü şablon). `APP_KEY` ve Reverb secret'ları boş bırakıldı; docker-compose hostname'leri (mysql/redis/mailpit/elasticsearch) ve port forward'lar (`APP_PORT=8090`, `FORWARD_DB_PORT=33306` vb.) hazır. Kurulum: `cp .env.local .env && php artisan key:generate`.
+- **`.env.example.local` repo'ya eklendi** (versiyon kontrollü şablon; önceki ad `.env.local` idi, Laravel override çakışması için yeniden adlandırıldı). `APP_KEY` ve Reverb secret'ları boş bırakıldı; docker-compose hostname'leri (mysql/redis/mailpit/elasticsearch) ve port forward'lar (`APP_PORT=8090`, `FORWARD_DB_PORT=33306` vb.) hazır. Kurulum: `cp .env.example.local .env && php artisan key:generate`.
 - **`PROJECT_MEMORY.md` kurulum bölümü güncellendi** — "Sıfırdan Kurulum" 7 adımlık tek bloğa indirgendi, docker-compose akışıyla uyumlu.
 
 ### Added — Auction "Koru + Tamamla" (20 Nisan 2026)

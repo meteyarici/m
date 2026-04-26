@@ -133,19 +133,45 @@ class AuctionController extends Controller
 
                 $description = !empty($request->description) ? $request->description : 'Açıklama eklenmedi.';
 
+                // Attribute id eşlemesi (Bagisto default attribute family):
+                //   1=sku, 2=name, 3=url_key, 7=visible_individually, 8=status,
+                //   9=short_description, 10=description, 11=price, 22=weight
+                // Mezat "pending" olarak doğarken status=0 kalır; admin activate
+                // akışı bu değeri 1'e çeker ve indexer'ı tetikler (bkz.
+                // App\Http\Controllers\Admin\AuctionModerationController@activate).
                 $attributeValues = [
                     ['product_id' => $productId, 'attribute_id' => 1, 'text_value' => $sku, 'unique_id' => $productId.'|1', 'channel' => null, 'locale' => null, 'boolean_value' => null, 'float_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 2, 'text_value' => $request->title, 'unique_id' => 'tr|default|'.$productId.'|2', 'channel' => 'default', 'locale' => 'tr', 'boolean_value' => null, 'float_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 3, 'text_value' => Str::slug($request->title), 'unique_id' => 'tr|default|'.$productId.'|3', 'channel' => 'default', 'locale' => 'tr', 'boolean_value' => null, 'float_value' => null],
-                    ['product_id' => $productId, 'attribute_id' => 11, 'float_value' => $request->start_price, 'unique_id' => 'default|'.$productId.'|11', 'channel' => 'default', 'locale' => null, 'text_value' => null, 'boolean_value' => null],
+                    ['product_id' => $productId, 'attribute_id' => 7, 'boolean_value' => 1, 'unique_id' => 'default|'.$productId.'|7', 'channel' => 'default', 'locale' => null, 'text_value' => null, 'float_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 8, 'boolean_value' => 0, 'unique_id' => 'default|'.$productId.'|8', 'channel' => 'default', 'locale' => null, 'text_value' => null, 'float_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 9, 'text_value' => $description, 'unique_id' => 'tr|default|'.$productId.'|9', 'channel' => 'default', 'locale' => 'tr', 'boolean_value' => null, 'float_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 10, 'text_value' => $description, 'unique_id' => 'tr|default|'.$productId.'|10', 'channel' => 'default', 'locale' => 'tr', 'boolean_value' => null, 'float_value' => null],
+                    ['product_id' => $productId, 'attribute_id' => 11, 'float_value' => $request->start_price, 'unique_id' => 'default|'.$productId.'|11', 'channel' => 'default', 'locale' => null, 'text_value' => null, 'boolean_value' => null],
                     ['product_id' => $productId, 'attribute_id' => 22, 'text_value' => '0.0000', 'unique_id' => $productId.'|22', 'channel' => null, 'locale' => null, 'boolean_value' => null, 'float_value' => null],
                 ];
                 DB::table('product_attribute_values')->insert($attributeValues);
 
-                DB::table('product_categories')->insert(['product_id' => $productId, 'category_id' => 3]);
+                // Ürünü seçilen alt kategoriye VE ana kategoriye bağla (ikisi farklıysa).
+                // Bagisto kategori listesi alt kategorilerin ürünlerini miras almadığı için,
+                // üst kategoriye tıklayan kullanıcının da bu ürünü görmesi adına çift bağ kuruyoruz.
+                // DB'de karşılığı olmayan id gelirse Root (1) fallback.
+                $categoryIds = collect([
+                    (int) $request->input('category_id'),
+                    (int) $request->input('category_parent_id'),
+                ])
+                    ->filter()
+                    ->unique()
+                    ->filter(fn ($id) => DB::table('categories')->where('id', $id)->exists())
+                    ->values();
+
+                if ($categoryIds->isEmpty()) {
+                    $categoryIds = collect([1]);
+                }
+
+                DB::table('product_categories')->insert(
+                    $categoryIds->map(fn ($cid) => ['product_id' => $productId, 'category_id' => $cid])->all()
+                );
                 DB::table('product_channels')->insert(['product_id' => $productId, 'channel_id' => 1]);
 
                 DB::table('product_inventories')->insert([
@@ -179,6 +205,9 @@ class AuctionController extends Controller
                         'delivery_note'        => $request->delivery_note ?? '',
                         'city'                 => $request->city ?? '',
                         'district'             => $request->district ?? '',
+                        'category_id'          => $request->category_id ?? 0,
+                        'category_parent_id'   => $request->category_parent_id ?? 0,
+                        'category_name'        => $request->category_name ?? '',
                         'category_suggestion'  => $request->category_suggestion ?? null,
                     ]);
 

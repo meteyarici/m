@@ -998,7 +998,8 @@
 
                         errorMessage: '',
                         errors: [],
-                        categories: [
+                        categories: @json($auctionCategories ?? [], JSON_UNESCAPED_UNICODE),
+                        _legacyCategories: [
                         {
                             "id": 1,
                             "name": "Figür",
@@ -1644,6 +1645,9 @@
                             ...this.form,
                             start_at: this.form.startImmediately ? this.getNowForInput() : this.form.start_at,
                             images: this.images.map(img => img.url),
+                            category_id: this.selectedSubCategory?.id || this.selectedCategory?.id || null,
+                            category_parent_id: this.selectedCategory?.id || null,
+                            category_name: this.selectedSubCategory?.name || this.selectedCategory?.name || null,
                             category_suggestion: this.categorySuggestion || null
                         };
 

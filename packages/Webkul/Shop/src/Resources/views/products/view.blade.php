@@ -317,7 +317,33 @@
                                 </div>
 
                                 @if($product->auction)
-                                <div id="countdownF" class="countdown-wrapper">
+                                @php
+                                    $auctionModel   = $product->auction;
+                                    $auctionStarts  = optional($auctionModel->start_at)->toIso8601String();
+                                    $auctionEnds    = optional($auctionModel->end_at)->toIso8601String();
+                                    // Mezat durumunu STATUS kolonundan türetiyoruz (zamandan bağımsız):
+                                    //   - live:     status=active                 → bitiş satırında küçük countdown (end_at)
+                                    //   - upcoming: status in [pending,approved]  → büyük kutu start_at'e geri sayar
+                                    //   - ended:    diğer durumlar veya end_at geçmiş → bitiş satırında tarih/"Sona erdi"
+                                    $auctionStatus = $auctionModel->status;
+                                    if ($auctionStatus === \App\Models\Auction::STATUS_ACTIVE) {
+                                        $auctionState = 'live';
+                                    } elseif (in_array($auctionStatus, [
+                                        \App\Models\Auction::STATUS_PENDING,
+                                        \App\Models\Auction::STATUS_APPROVED,
+                                    ], true)) {
+                                        $auctionState = 'upcoming';
+                                    } else {
+                                        $auctionState = 'ended';
+                                    }
+                                @endphp
+
+                                <div id="countdownF"
+                                     class="countdown-wrapper"
+                                     data-starts-at="{{ $auctionStarts }}"
+                                     data-ends-at="{{ $auctionEnds }}"
+                                     data-state="{{ $auctionState }}"
+                                     style="{{ $auctionState === 'upcoming' ? '' : 'display:none' }}">
                                     <div class="time-box">
                                         <span id="cd-days" class="time-number">0</span>
                                         <span class="time-label">Gün</span>
@@ -347,11 +373,14 @@
                                         <div class="info-left">
                                             <div class="date-row">
                                                 <span>Başlangıç :</span>
-                                                <span>  {{ $product->auction->start_at_formatted }}</span>
+                                                <span>  {{ $auctionModel->start_at_formatted }}</span>
                                             </div>
                                             <div class="date-row">
                                                 <span>Bitiş :</span>
-                                                <span>{{ $product->auction->end_at_formatted }}</span>
+                                                <span id="auctionEndDisplay"
+                                                      data-ends-at="{{ $auctionEnds }}"
+                                                      data-end-formatted="{{ $auctionModel->end_at_formatted }}"
+                                                      data-state="{{ $auctionState }}">@if($auctionState === 'live')<span class="end-countdown is-live">--:--:--</span>@elseif($auctionState === 'ended')<span class="end-countdown is-expired">Sona erdi</span>@else{{ $auctionModel->end_at_formatted }}@endif</span>
                                             </div>
 
                                         </div>
@@ -539,39 +568,144 @@
 
 
             <script>
-                // Set the date we're counting down to
-                var countDownDate = new Date("Dec 30, 2025 15:37:25").getTime();
+                // Mezat countdown — #auctionEndDisplay / #countdownF, v-product'ın
+                // <script type="text/x-template"> içinde; Vue DOM'a basana kadar id'ler yok, bu yüzden
+                // RAF + MutationObserver ile gecikmeli başlatıyoruz.
+                (function () {
+                    let started = false;
 
-                // Update the count down every 1 second
-                var x = setInterval(function() {
+                    const parseIso = (v) => {
+                        if (!v) return null;
+                        const t = new Date(v).getTime();
+                        return Number.isFinite(t) ? t : null;
+                    };
 
-                    // Get today's date and time
-                    var now = new Date().getTime();
+                    const pad = (n) => String(n).padStart(2, '0');
 
-                    // Find the distance between now and the count down date
-                    var distance = countDownDate - now;
+                    const formatDiff = (diffMs) => {
+                        if (diffMs <= 0) return null;
+                        const days    = Math.floor(diffMs / 86400000);
+                        const hours   = Math.floor((diffMs % 86400000) / 3600000);
+                        const minutes = Math.floor((diffMs % 3600000) / 60000);
+                        const seconds = Math.floor((diffMs % 60000) / 1000);
+                        return { days, hours, minutes, seconds };
+                    };
 
-                    // Time calculations for days, hours, minutes and seconds
-                    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                    function startCountdown() {
+                        if (started) {
+                            return true;
+                        }
+                        const bigBox    = document.getElementById('countdownF');
+                        const daysEl    = document.getElementById('cd-days');
+                        const hoursEl   = document.getElementById('cd-hours');
+                        const minutesEl = document.getElementById('cd-minutes');
+                        const secondsEl = document.getElementById('cd-seconds');
+                        const endWrap   = document.getElementById('auctionEndDisplay');
 
-                    document.getElementById("cd-days").innerText = days;
-                    document.getElementById("cd-hours").innerText = hours;
-                    document.getElementById("cd-minutes").innerText = minutes;
-                    document.getElementById("cd-seconds").innerText = seconds;
+                        if (!bigBox && !endWrap) {
+                            return false;
+                        }
+                        started = true;
 
-                    // Display the result in the element with id="countdown"
-                  //  document.getElementById("countdown").innerHTML = days + "d " + hours + "h "
-                  //      + minutes + "m " + seconds + "s ";
+                        const state    = endWrap?.dataset.state ?? bigBox?.dataset.state ?? 'ended';
+                        const startsAt = parseIso(bigBox?.dataset.startsAt);
+                        const endsAt   = parseIso(endWrap?.dataset.endsAt ?? bigBox?.dataset.endsAt);
 
-                    // If the count down is finished, write some text
-                    if (distance < 0) {
-                        clearInterval(x);
-                        document.getElementById("countdown").innerHTML = "EXPIRED";
+                        const renderLive = () => {
+                            if (!endsAt) {
+                                return;
+                            }
+                            const diff = formatDiff(endsAt - Date.now());
+                            const node = endWrap?.querySelector('.end-countdown');
+                            if (!diff) {
+                                if (node) {
+                                    node.className = 'end-countdown is-expired';
+                                    node.textContent = 'Sona erdi';
+                                }
+                                return;
+                            }
+                            const label = diff.days > 0
+                                ? `${diff.days}g ${pad(diff.hours)}:${pad(diff.minutes)}:${pad(diff.seconds)}`
+                                : `${pad(diff.hours)}:${pad(diff.minutes)}:${pad(diff.seconds)}`;
+                            if (node) {
+                                node.textContent = label;
+                            }
+                        };
+
+                        const renderUpcoming = () => {
+                            if (!startsAt) {
+                                return;
+                            }
+                            const diff = formatDiff(startsAt - Date.now());
+                            if (!diff) {
+                                if (bigBox) {
+                                    bigBox.style.display = 'none';
+                                }
+                                return;
+                            }
+                            if (daysEl) {
+                                daysEl.textContent = diff.days;
+                            }
+                            if (hoursEl) {
+                                hoursEl.textContent = diff.hours;
+                            }
+                            if (minutesEl) {
+                                minutesEl.textContent = diff.minutes;
+                            }
+                            if (secondsEl) {
+                                secondsEl.textContent = diff.seconds;
+                            }
+                        };
+
+                        const tick = () => {
+                            if (state === 'live') {
+                                return renderLive();
+                            }
+                            if (state === 'upcoming') {
+                                return renderUpcoming();
+                            }
+                        };
+
+                        tick();
+                        if (state === 'live' || state === 'upcoming') {
+                            setInterval(tick, 1000);
+                        }
+                        return true;
                     }
-                }, 1000);
+
+                    let frames = 0;
+                    function tryMount() {
+                        if (startCountdown()) {
+                            if (obs) {
+                                obs.disconnect();
+                            }
+                            return;
+                        }
+                        if (++frames > 500) {
+                            if (obs) {
+                                obs.disconnect();
+                            }
+                            return;
+                        }
+                        requestAnimationFrame(tryMount);
+                    }
+
+                    const obs = typeof MutationObserver !== 'undefined'
+                        ? new MutationObserver(() => {
+                            if (document.getElementById('auctionEndDisplay') || document.getElementById('countdownF')) {
+                                if (startCountdown()) {
+                                    if (obs) {
+                                        obs.disconnect();
+                                    }
+                                }
+                            }
+                        })
+                        : null;
+                    if (obs) {
+                        obs.observe(document.body, { childList: true, subtree: true });
+                    }
+                    tryMount();
+                })();
 
 
                     function changeBid(amount) {
@@ -618,6 +752,25 @@
             text-transform: uppercase;
             opacity: 0.6;
             margin-top: 2px;
+        }
+
+        .end-countdown {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.3px;
+        }
+
+        .end-countdown.is-live {
+            background: #fff1f0;
+            color: #c92a2a;
+        }
+
+        .end-countdown.is-expired {
+            background: #f1f3f5;
+            color: #6c757d;
         }
         .bid-bar {
             display: flex;

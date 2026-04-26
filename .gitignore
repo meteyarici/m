@@ -49,3 +49,6 @@ frankenphp-worker.php
 **/.DS_Store
 *:Zone.Identifier
 __MACOSX/
+
+# PsySH (lokal geçmiş)
+config/psysh/psysh_history

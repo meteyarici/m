@@ -7,6 +7,8 @@ use App\Models\Auction;
 use App\Services\Auction\BidService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -75,9 +77,46 @@ class AuctionModerationController extends Controller
         $auction->status = Auction::STATUS_ACTIVE;
         $auction->save();
 
+        $this->publishProduct((int) $auction->product_id);
+
         $this->bidService->warmUp($auction);
 
         return back()->with('success', "Mezat #{$auction->id} aktif edildi.");
+    }
+
+    /**
+     * Mezat aktif edildiğinde ilgili ürünü "yayında" hale getirir:
+     *   - status attribute (id=8) → 1
+     *   - visible_individually attribute (id=7) → 1 (garanti)
+     * Ardından Bagisto indexer'ını senkron çalıştırır; böylece product_flat
+     * ve ElasticSearch (etkinse) güncellenir ve ürün aramada/kategoride görünür.
+     *
+     * Not: `Artisan::queue()` yerine `Artisan::call()` kullanılıyor çünkü şu an
+     * queue worker çalışmıyor. Worker devreye alınırsa burayı queue'ya çevirebiliriz.
+     */
+    protected function publishProduct(int $productId): void
+    {
+        if (! $productId) {
+            return;
+        }
+
+        DB::table('product_attribute_values')
+            ->where('product_id', $productId)
+            ->where('attribute_id', 8)
+            ->update(['boolean_value' => 1]);
+
+        DB::table('product_attribute_values')
+            ->updateOrInsert(
+                ['product_id' => $productId, 'attribute_id' => 7, 'channel' => 'default', 'locale' => null],
+                [
+                    'boolean_value' => 1,
+                    'text_value'    => null,
+                    'float_value'   => null,
+                    'unique_id'     => 'default|'.$productId.'|7',
+                ]
+            );
+
+        Artisan::call('indexer:index', ['--mode' => ['full']]);
     }
 
     public function reject(int $id): RedirectResponse
